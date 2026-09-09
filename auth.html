@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Dropbox-Anmeldung</title>
+<style>
+  body { font: 15px/1.5 "Segoe UI", system-ui, sans-serif; margin: 0; padding: 32px 24px;
+         color: #1b1b1b; background: #faf9f8; }
+  .box { max-width: 420px; margin: 0 auto; text-align: center; }
+  .err { color: #a4262c; background: #fdf3f4; border: 1px solid #f3d6d8;
+         border-radius: 6px; padding: 12px; text-align: left; }
+</style>
+</head>
+<body>
+<div class="box" id="out">Anmeldung wird vorbereitet…</div>
+
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="config.js"></script>
+<script>
+/* Diese Seite macht die komplette PKCE-Anmeldung allein und schickt am Ende
+   die Tokens an das Taskpane zurück. Sie liegt bewusst auf derselben Domain
+   wie das Add-in - nur dann darf sie messageParent aufrufen. */
+
+const out = document.getElementById("out");
+const VERIFIER_KEY = "dbx_pkce_verifier";
+const REDIRECT = window.location.origin + window.location.pathname;
+
+function show(html, isError) {
+  out.innerHTML = isError ? '<div class="err">' + html + "</div>" : html;
+}
+function done(payload) {
+  try { Office.context.ui.messageParent(JSON.stringify(payload)); }
+  catch (e) { show("Konnte das Ergebnis nicht zurückgeben: " + e.message, true); }
+}
+
+function b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function challenge(verifier) {
+  return b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+}
+function newVerifier() {
+  const a = new Uint8Array(64); crypto.getRandomValues(a);
+  return b64url(a.buffer);
+}
+
+async function start() {
+  const verifier = newVerifier();
+  sessionStorage.setItem(VERIFIER_KEY, verifier);
+  const url = new URL("https://www.dropbox.com/oauth2/authorize");
+  url.searchParams.set("client_id", CONFIG.DROPBOX_APP_KEY);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("code_challenge", await challenge(verifier));
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("redirect_uri", REDIRECT);
+  url.searchParams.set("token_access_type", "offline"); // liefert das Refresh-Token
+  window.location.replace(url.href);
+}
+
+async function finish(code) {
+  const verifier = sessionStorage.getItem(VERIFIER_KEY);
+  if (!verifier) return done({ error: "Anmeldung abgelaufen, bitte erneut versuchen." });
+  const body = new URLSearchParams({
+    code, grant_type: "authorization_code",
+    client_id: CONFIG.DROPBOX_APP_KEY,
+    code_verifier: verifier, redirect_uri: REDIRECT,
+  });
+  const res = await fetch("https://api.dropbox.com/oauth2/token", { method: "POST", body });
+  const j = await res.json().catch(() => ({}));
+  sessionStorage.removeItem(VERIFIER_KEY);
+  if (!res.ok) return done({ error: "Dropbox hat die Anmeldung abgelehnt: " + (j.error_description || res.status) });
+  done(j);
+}
+
+Office.onReady(() => {
+  const q = new URLSearchParams(window.location.search);
+  if (q.get("error")) { done({ error: "Zugriff nicht erteilt (" + q.get("error") + ")." }); return; }
+  if (q.get("code")) { show("Anmeldung wird abgeschlossen…"); finish(q.get("code")); return; }
+  start().catch(e => show("Start fehlgeschlagen: " + e.message, true));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>In Akte ablegen</title>
+<style>
+  :root { --line:#e3e1de; --muted:#605e5c; --accent:#0f6cbd; --ok:#0b6a0b; --err:#a4262c; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; margin: 0; padding: 12px;
+         color: #1b1b1b; background: #fff; }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  input[type=search], button { font: inherit; }
+  input[type=search] { width: 100%; padding: 7px 9px; border: 1px solid var(--line);
+                       border-radius: 4px; margin-bottom: 8px; }
+  button { padding: 7px 14px; border-radius: 4px; border: 1px solid var(--accent);
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  ul { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto;
+       border: 1px solid var(--line); border-radius: 4px; }
+  li { padding: 7px 9px; cursor: pointer; border-bottom: 1px solid #f2f0ee; }
+  li:last-child { border-bottom: 0; }
+  li:hover { background: #f3f2f1; }
+  li[aria-selected=true] { background: #eff6fc; box-shadow: inset 3px 0 0 var(--accent); }
+  label.opt { display: flex; gap: 7px; align-items: flex-start; margin: 10px 0; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .note { border-radius: 4px; padding: 9px 10px; margin-bottom: 10px; font-size: 13px; }
+  .note.info { background: #f3f2f1; }
+  .note.ok   { background: #f1faf1; color: var(--ok); }
+  .note.err  { background: #fdf3f4; color: var(--err); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div id="signin" class="hidden">
+  <h1>Mit Dropbox verbinden</h1>
+  <p class="muted small">Einmalig nötig. Danach bleibt die Anmeldung bestehen.</p>
+  <button id="btn-login">Bei Dropbox anmelden</button>
+</div>
+
+<div id="main" class="hidden">
+  <h1>In Akte ablegen</h1>
+  <div id="banner" class="hidden"></div>
+
+  <input type="search" id="filter" placeholder="Akte suchen …" autocomplete="off">
+  <ul id="list" role="listbox"></ul>
+
+  <label class="opt">
+    <input type="checkbox" id="opt-attachments" checked>
+    <span>Anhänge zusätzlich einzeln ablegen<br>
+      <span class="muted small">Ohne Haken landet nur die Mail in der Akte – die Anhänge stecken dann weiterhin darin.</span>
+    </span>
+  </label>
+
+  <div class="row">
+    <button id="btn-file" disabled>Ablegen</button>
+    <button id="btn-reload" class="ghost">Liste neu laden</button>
+  </div>
+  <p class="muted small" id="status"></p>
+</div>
+
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="config.js"></script>
+<script src="dropbox.js"></script>
+<script src="taskpane.js"></script>
+</body>
+</html>
