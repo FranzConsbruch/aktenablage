@@ -84,8 +84,26 @@ function restToken() {
   });
 }
 
-/* Holt die Nachricht als rohes MIME - das ist bereits eine .eml-Datei. */
-async function fetchMime() {
+function supportsSet(v) {
+  try { return Office.context.requirements.isSetSupported("Mailbox", v); } catch { return false; }
+}
+
+/* Bevorzugter Weg (Requirement Set 1.14): Outlook liefert die Nachricht direkt
+   als EML, base64-kodiert. Braucht kein Token und keinen REST-Aufruf. */
+function emlViaOfficeApi() {
+  return new Promise((resolve, reject) => {
+    Office.context.mailbox.item.getAsFileAsync(r => {
+      if (r.status === Office.AsyncResultStatus.Succeeded) resolve(b64ToBytes(r.value));
+      else reject(new Error("Outlook konnte die Nachricht nicht liefern: " + r.error.message));
+    });
+  });
+}
+
+/* Alter Weg über die Outlook-REST-Schnittstelle. Funktioniert nur, solange im
+   Tenant die "Legacy Exchange Online Tokens" aktiv sind - in neuen Tenants sind
+   sie ab Werk aus, dann scheitert getCallbackTokenAsync mit Code 9018
+   ("Ein interner Fehler ist aufgetreten"). Deshalb nur noch Rückfallebene. */
+async function emlViaRest() {
   const token = await restToken();
   const restId = Office.context.mailbox.convertToRestId(
     Office.context.mailbox.item.itemId, Office.MailboxEnums.RestVersion.v2_0);
@@ -93,6 +111,15 @@ async function fetchMime() {
   const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
   if (!res.ok) throw new Error("Nachricht konnte nicht gelesen werden (" + res.status + ").");
   return res.arrayBuffer();
+}
+
+/* Holt die Nachricht als rohes MIME - das ist bereits eine .eml-Datei. */
+async function fetchMime() {
+  const item = Office.context.mailbox.item;
+  if (item && typeof item.getAsFileAsync === "function" && supportsSet("1.14")) {
+    return emlViaOfficeApi();
+  }
+  return emlViaRest();
 }
 
 function attachmentContent(id) {
@@ -152,11 +179,14 @@ async function fileToAkte() {
 
   $("btn-file").disabled = true;
   banner("");
+  let schritt = "Start";
   try {
+    schritt = "Nachricht lesen";
     setStatus("Nachricht wird gelesen …");
     const mime = await fetchMime();
 
     const base = baseName(item);
+    schritt = "Mail hochladen";
     setStatus("Mail wird hochgeladen …");
     await DBX.upload(selected.path + "/" + base + ".eml", mime);
 
@@ -165,6 +195,7 @@ async function fileToAkte() {
       const list = (item.attachments || []).filter(a => a.attachmentType === Office.MailboxEnums.AttachmentType.File && !a.isInline);
       for (let i = 0; i < list.length; i++) {
         const a = list[i];
+        schritt = "Anhang " + (i + 1) + " lesen/hochladen";
         setStatus("Anhang " + (i + 1) + " von " + list.length + " …");
         const content = await attachmentContent(a.id);
         if (content.format !== Office.MailboxEnums.AttachmentContentFormat.Base64) continue;
@@ -174,9 +205,11 @@ async function fileToAkte() {
       }
     }
 
+    schritt = "Kategorie setzen";
     setStatus("Mail wird markiert …");
     await ensureCategory();
 
+    schritt = "Vermerk speichern";
     if (customProps) {
       customProps.set(PROP_KEY, JSON.stringify({ path: selected.path, label: selected.label, at: new Date().toISOString() }));
       await saveProps();
@@ -186,7 +219,8 @@ async function fileToAkte() {
     banner("Abgelegt in " + selected.label + (withAttachments ? " (Mail + " + count + " Anhänge)" : " (nur die Mail)"), "ok");
   } catch (e) {
     setStatus("");
-    banner(e.message || String(e), "err");
+    banner("Schritt „" + schritt + "\" fehlgeschlagen: " + (e.message || String(e)), "err");
+    console.error("[Akte]", schritt, e);
     $("btn-file").disabled = false;
   }
 }
@@ -211,20 +245,41 @@ async function loadAkten(force) {
   }
 }
 
+/* Zeigt für die gerade ausgewählte Mail an, ob sie schon abgelegt wurde,
+   und setzt Auswahl und Knopf zurück. Läuft beim Öffnen und bei jedem Mailwechsel,
+   damit das angeheftete Panel mitwandert. */
+async function refreshForCurrentItem() {
+  banner("");
+  setStatus("");
+  selected = null;
+  $("btn-file").disabled = true;
+  renderList();
+
+  const item = Office.context.mailbox.item;
+  if (!item) { banner("Keine Nachricht ausgewählt.", "info"); return; }
+
+  const props = await loadProps();
+  if (!props) return;
+  const raw = props.get(PROP_KEY);
+  if (!raw) return;
+  try {
+    const prev = JSON.parse(raw);
+    banner("Diese Mail wurde bereits abgelegt: " + prev.label + ". Erneutes Ablegen legt eine zweite Kopie an.", "info");
+  } catch {}
+}
+
 async function showMain() {
   $("signin").className = "hidden";
   $("main").className = "";
-  const props = await loadProps();
-  if (props) {
-    const raw = props.get(PROP_KEY);
-    if (raw) {
-      try {
-        const prev = JSON.parse(raw);
-        banner("Diese Mail wurde bereits abgelegt: " + prev.label + ". Erneutes Ablegen legt eine zweite Kopie an.", "info");
-      } catch {}
-    }
-  }
   await loadAkten(false);
+  await refreshForCurrentItem();
+
+  /* Angeheftetes Panel: Outlook meldet den Wechsel der ausgewählten Mail. */
+  Office.context.mailbox.addHandlerAsync(
+    Office.EventType.ItemChanged,
+    () => { refreshForCurrentItem().catch(e => banner(e.message, "err")); },
+    r => { if (r.status !== Office.AsyncResultStatus.Succeeded) console.warn("ItemChanged nicht registriert:", r.error); }
+  );
 }
 
 Office.onReady(info => {

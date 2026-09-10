@@ -38,16 +38,39 @@ mit **Submit** gespeichert sein: `files.metadata.read`, `files.metadata.write`,
 In `manifest.xml` stehen die Adressen schon drin
 (`https://franzconsbruch.github.io/aktenablage`). Nichts zu tun.
 
-**4. Add-in sideloaden**
+**4. Add-in bereitstellen**
 
-Outlook im Web öffnen → *Einstellungen → E-Mail → Add-Ins anpassen* →
-*Meine Add-Ins → Benutzerdefiniertes Add-In hinzufügen → Aus Datei* → `manifest.xml` wählen.
-Das Add-in erscheint danach auch im Outlook-Desktop desselben Kontos.
+Über das Admin Center (empfohlen, und der Weg für weitere Nutzer):
+**admin.microsoft.com → Einstellungen → Integrierte Apps → Benutzerdefinierte Apps hochladen**
+→ *Office-Add-In* → `manifest.xml`. Danach beim Zuweisen die gewünschten Benutzer wählen.
+Die Bereitstellung braucht bis zu 24 Stunden, meist 15 bis 60 Minuten.
+
+Alternativ als Endnutzer: eine Mail öffnen → **Apps** in der Nachrichten-Symbolleiste →
+im Dialog *Add-Ins für Outlook* unter **Meine Add-Ins → Benutzerdefinierte Add-Ins →
+Benutzerdefiniertes Add-In hinzufügen → Aus Datei hinzufügen**. In den Outlook-Einstellungen
+gibt es diesen Punkt **nicht** – dort sucht man vergeblich.
+
+Der Knopf erscheint anschließend im Menüband einer geöffneten Mail unter **Weitere Apps**.
 
 **5. Erster Lauf**
 
 Eine Mail öffnen → Schaltfläche **In Akte ablegen** → *Bei Dropbox anmelden*.
 Die Anmeldung läuft einmalig; danach hält sie über das Refresh-Token.
+
+## Änderungen veröffentlichen
+
+Im Projektordner liegt **`push.cmd`**. Doppelklick genügt: Beim ersten Lauf legt es das lokale
+Repository an, verbindet es mit `github.com/FranzConsbruch/aktenablage` und übernimmt die
+vorhandene Historie; danach committet und pusht es alles Geänderte. Für eine eigene
+Commit-Nachricht in der Eingabeaufforderung `push.cmd "Was geaendert wurde"` aufrufen.
+
+Beim allerersten Push fragt Git nach der GitHub-Anmeldung — im Browser bestätigen und
+`push.cmd` noch einmal starten. GitHub Pages übernimmt die Änderung nach ein bis zwei Minuten;
+danach im Outlook das Panel schließen und neu öffnen.
+
+**Wichtig:** Änderungen an `manifest.xml` wirken **nicht** über Pages. Das Manifest muss im
+Admin Center unter *Integrierte Apps* neu hochgeladen werden — und dort auch nur, wenn sich
+das Manifest tatsächlich geändert hat. Änderungen an HTML, JS und Symbolen brauchen nur den Push.
 
 ## Dateien
 
@@ -71,6 +94,13 @@ Die Anmeldung läuft einmalig; danach hält sie über das Refresh-Token.
 Datum, Absender, Betreff (auf 60 Zeichen gekürzt), unter Windows verbotene Zeichen ersetzt.
 Anhänge liegen **flach daneben**, damit sie nach Datum sortiert direkt bei der Mail stehen
 und in der Aktenansicht auftauchen.
+
+## Angeheftetes Panel
+
+Das Taskpane kann **angeheftet** werden (Stecknadel oben im Panel). Dann bleibt die Leiste
+rechts offen und wechselt automatisch mit, wenn eine andere Mail ausgewählt wird — dasselbe
+Verhalten wie in Kleos. Technisch: `<SupportsPinning>` im Manifest plus ein Handler auf
+`Office.EventType.ItemChanged`, der Auswahl, Knopf und den Hinweis „bereits abgelegt" neu setzt.
 
 ## Was das Add-in bewusst nicht tut
 
