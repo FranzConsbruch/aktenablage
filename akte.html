@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aktenseite</title>
+<style>
+  :root { --line:#e3e1de; --muted:#605e5c; --accent:#0f6cbd; --ok:#0b6a0b; --err:#a4262c; --bg:#faf9f8; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 "Segoe UI", system-ui, sans-serif; margin: 0; color: #1b1b1b; background: var(--bg); }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #fff;
+           border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; }
+  header .muted { font-size: 12px; }
+  main { max-width: 1060px; margin: 0 auto; padding: 16px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  input, select, textarea, button { font: inherit; }
+  input[type=search], input[type=text], input[type=date], input[type=email], select, textarea {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  button { padding: 7px 14px; border-radius: 4px; border: 1px solid var(--accent);
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: var(--accent); }
+  button.mini { padding: 2px 8px; font-size: 12px; }
+  button:disabled { opacity: .5; cursor: default; }
+  ul.plain { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto;
+             border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  ul.plain li { padding: 7px 10px; border-bottom: 1px solid #f2f0ee; cursor: pointer; }
+  ul.plain li:last-child { border-bottom: 0; }
+  ul.plain li:hover { background: #f3f2f1; }
+  ul.plain li .meta { display: block; font-size: 12px; color: var(--muted); }
+  .tabs { display: flex; gap: 4px; margin: 12px 0; flex-wrap: wrap; }
+  .tabs button { background: #fff; color: #1b1b1b; border: 1px solid var(--line); }
+  .tabs button[aria-selected=true] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #f2f0ee; vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .note { border-radius: 4px; padding: 9px 10px; margin: 10px 0; font-size: 13px; }
+  .note.info { background: #f3f2f1; }
+  .note.ok   { background: #f1faf1; color: var(--ok); }
+  .note.err  { background: #fdf3f4; color: var(--err); }
+  .overdue { color: var(--err); font-weight: 600; }
+  .grid-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+  .grid-form .wide { grid-column: 1 / -1; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  a.back { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="head-title">Aktenseite</h1>
+  <span class="muted" id="head-sub"></span>
+  <button class="ghost mini hidden" id="btn-logout">Abmelden</button>
+</header>
+
+<main>
+  <!-- Anmeldung -->
+  <div id="v-login" class="card hidden" style="max-width:420px;margin:40px auto;text-align:center">
+    <h2>Mit Dropbox verbinden</h2>
+    <p class="muted small">Jede Person meldet sich mit ihrem eigenen Dropbox-Konto an
+      und sieht genau die Akten, die ihr freigegeben sind.</p>
+    <button id="btn-login">Bei Dropbox anmelden</button>
+    <div id="login-banner"></div>
+  </div>
+
+  <!-- Startansicht: Akte wählen + fällige Wiedervorlagen -->
+  <div id="v-home" class="hidden">
+    <div class="cols">
+      <section class="card">
+        <h2>Akte öffnen</h2>
+        <input type="search" id="home-filter" placeholder="Akte suchen …" autocomplete="off">
+        <ul class="plain" id="home-list"></ul>
+        <p class="muted small" id="home-status"></p>
+        <button class="ghost mini" id="btn-reload-akten">Aktenliste neu laden</button>
+      </section>
+      <section class="card">
+        <h2>Wiedervorlagen</h2>
+        <div id="wv-banner"></div>
+        <ul class="plain" id="wv-all"></ul>
+        <p class="muted small">Überfällige und anstehende Einträge aus allen Bereichen, Klick öffnet die Akte.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- Aktenansicht -->
+  <div id="v-akte" class="hidden">
+    <p><a class="back" id="btn-home">‹ Alle Akten</a></p>
+    <h2 id="akte-title"></h2>
+    <p class="muted small" id="akte-path"></p>
+    <div id="akte-banner"></div>
+
+    <div class="tabs" role="tablist">
+      <button data-tab="dok" aria-selected="true">Dokumente</button>
+      <button data-tab="bet" aria-selected="false">Beteiligte</button>
+      <button data-tab="wv" aria-selected="false">Wiedervorlagen</button>
+      <button data-tab="brief" aria-selected="false">Brief erzeugen</button>
+    </div>
+
+    <!-- Dokumente -->
+    <section id="tab-dok" class="card">
+      <input type="search" id="dok-filter" placeholder="Datei suchen …" autocomplete="off">
+      <ul class="plain" id="dok-list"></ul>
+      <p class="muted small">Klick öffnet die Datei in einem neuen Tab. Volltextsuche: Windows-Explorer im Dropbox-Ordner.</p>
+    </section>
+
+    <!-- Beteiligte -->
+    <section id="tab-bet" class="card hidden">
+      <table id="bet-table">
+        <thead><tr><th>Name</th><th>Rolle</th><th>Kontakt</th><th>Anschrift</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <h3 id="bet-form-title">Beteiligten hinzufügen</h3>
+      <div class="grid-form">
+        <input type="text" id="bet-name" placeholder="Name *">
+        <input type="text" id="bet-rolle" placeholder="Rolle (z. B. Pächter, Behörde)">
+        <input type="text" id="bet-anrede" class="wide" placeholder="Anrede im Brief, z. B. Sehr geehrter Herr Moerkerk">
+        <input type="text" id="bet-firma" placeholder="Firma / Organisation">
+        <input type="text" id="bet-telefon" placeholder="Telefon">
+        <input type="text" id="bet-strasse" placeholder="Straße und Hausnummer">
+        <input type="text" id="bet-plzort" placeholder="PLZ und Ort">
+        <input type="email" id="bet-email" class="wide" placeholder="E-Mail">
+      </div>
+      <div class="row">
+        <button id="bet-save">Speichern</button>
+        <button class="ghost hidden" id="bet-cancel">Abbrechen</button>
+      </div>
+    </section>
+
+    <!-- Wiedervorlagen der Akte -->
+    <section id="tab-wv" class="card hidden">
+      <ul class="plain" id="wv-list"></ul>
+      <h3>Neue Wiedervorlage</h3>
+      <div class="grid-form">
+        <input type="date" id="wv-datum">
+        <input type="text" id="wv-notiz" placeholder="Worum geht es?">
+      </div>
+      <div class="row"><button id="wv-save">Anlegen</button></div>
+    </section>
+
+    <!-- Brief erzeugen -->
+    <section id="tab-brief" class="card hidden">
+      <div class="grid-form">
+        <select id="brief-vorlage"></select>
+        <select id="brief-beteiligter"></select>
+        <input type="text" id="brief-betreff" class="wide" placeholder="Betreff (füllt den Platzhalter Betreff)">
+      </div>
+      <div class="row">
+        <button id="brief-go">Brief erzeugen</button>
+        <span class="muted small" id="brief-status"></span>
+      </div>
+      <p class="muted small">Vorlagen sind Word-Dateien im Ordner <code>_Vorlagen</code> des Bereichs.
+        Platzhalter am Stück tippen: <code>{{Anrede}}</code> <code>{{Name}}</code> <code>{{Firma}}</code>
+        <code>{{Strasse}}</code> <code>{{PLZOrt}}</code> <code>{{Email}}</code> <code>{{Telefon}}</code>
+        <code>{{Datum}}</code> <code>{{Akte}}</code> <code>{{Betreff}}</code>.
+        Der fertige Brief wird im Aktenordner gespeichert und zusätzlich zum Download angeboten.</p>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="config.js?v=3"></script>
+<script src="dropbox.js?v=3"></script>
+<script src="akte.js?v=3"></script>
+</body>
+</html>

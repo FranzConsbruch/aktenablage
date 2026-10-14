@@ -13,7 +13,8 @@ const CONFIG = {
   ],
 
   // Ordnernamen, die nie als Ablageziel angeboten werden (exakter Name, auf jeder Ebene).
-  EXCLUDE: ["00_Claude", "_Archiv", "_to_delete", "Claude outputs", "Ad Acta"],
+  EXCLUDE: ["00_Claude", "_Archiv", "_to_delete", "Claude outputs", "Ad Acta",
+            "_Wiedervorlagen", "_Vorlagen", "erledigt"],
 
   // Wie tief unter den Bereichen Ordner angeboten werden (1 = nur Themenordner, 2 = auch deren Unterordner).
   DEPTH: 2,
@@ -23,4 +24,15 @@ const CONFIG = {
 
   // Name der Outlook-Kategorie, die eine abgelegte Mail bekommt.
   CATEGORY: "Abgelegt",
+
+  // Anhänge aus der Akte: größere Dateien werden nicht angehängt (Mail-Grenzen).
+  ATTACH_MAX_MB: 20,
+
+  // Je Bereich: Ordner für Wiedervorlagen (eine kleine Datei je Eintrag; erledigte
+  // wandern in den Unterordner "erledigt") und für Word-Vorlagen des Briefgenerators.
+  WIEDERVORLAGEN_DIR: "_Wiedervorlagen",
+  VORLAGEN_DIR: "_Vorlagen",
+
+  // Dateiname der Beteiligtenliste im jeweiligen Aktenordner.
+  BETEILIGTE_DATEI: "beteiligte.json",
 };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>In Akte ablegen</title>
+<title>Akte</title>
 <style>
   :root { --line:#e3e1de; --muted:#605e5c; --accent:#0f6cbd; --ok:#0b6a0b; --err:#a4262c; }
   * { box-sizing: border-box; }
@@ -19,12 +19,15 @@
            background: var(--accent); color: #fff; cursor: pointer; }
   button.ghost { background: #fff; color: var(--accent); }
   button:disabled { opacity: .5; cursor: default; }
+  a.back { display: inline-block; margin-bottom: 8px; color: var(--accent); cursor: pointer;
+           text-decoration: none; }
   ul { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto;
        border: 1px solid var(--line); border-radius: 4px; }
   li { padding: 7px 9px; cursor: pointer; border-bottom: 1px solid #f2f0ee; }
   li:last-child { border-bottom: 0; }
   li:hover { background: #f3f2f1; }
   li[aria-selected=true] { background: #eff6fc; box-shadow: inset 3px 0 0 var(--accent); }
+  li .meta { display: block; font-size: 12px; color: var(--muted); }
   label.opt { display: flex; gap: 7px; align-items: flex-start; margin: 10px 0; }
   .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
   .note { border-radius: 4px; padding: 9px 10px; margin-bottom: 10px; font-size: 13px; }
@@ -42,14 +45,15 @@
   <button id="btn-login">Bei Dropbox anmelden</button>
 </div>
 
+<!-- Stufe 1 (beide Modi): Akte wählen -->
 <div id="main" class="hidden">
-  <h1>In Akte ablegen</h1>
+  <h1 id="title">In Akte ablegen</h1>
   <div id="banner" class="hidden"></div>
 
   <input type="search" id="filter" placeholder="Akte suchen …" autocomplete="off">
   <ul id="list" role="listbox"></ul>
 
-  <label class="opt">
+  <label class="opt" id="opt-row">
     <input type="checkbox" id="opt-attachments" checked>
     <span>Anhänge zusätzlich einzeln ablegen<br>
       <span class="muted small">Ohne Haken landet nur die Mail in der Akte – die Anhänge stecken dann weiterhin darin.</span>
@@ -63,9 +67,19 @@
   <p class="muted small" id="status"></p>
 </div>
 
+<!-- Stufe 2 (nur Verfassen-Modus): Datei aus der Akte anhängen -->
+<div id="files" class="hidden">
+  <a class="back" id="btn-back">‹ Andere Akte wählen</a>
+  <h1 id="files-title">Anhang wählen</h1>
+  <div id="files-banner" class="hidden"></div>
+  <input type="search" id="file-filter" placeholder="Datei suchen …" autocomplete="off">
+  <ul id="file-list" role="listbox"></ul>
+  <p class="muted small" id="files-status">Klick auf eine Datei hängt sie an die Mail an.</p>
+</div>
+
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-<script src="config.js?v=2"></script>
-<script src="dropbox.js?v=2"></script>
-<script src="taskpane.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="dropbox.js?v=3"></script>
+<script src="taskpane.js?v=3"></script>
 </body>
 </html>

@@ -72,12 +72,31 @@ danach im Outlook das Panel schließen und neu öffnen.
 Admin Center unter *Integrierte Apps* neu hochgeladen werden — und dort auch nur, wenn sich
 das Manifest tatsächlich geändert hat. Änderungen an HTML, JS und Symbolen brauchen nur den Push.
 
+## Anhang aus der Akte (Verfassen-Modus, seit 1.1.0.0)
+
+Beim Schreiben einer Mail: **Weitere Apps → Anhang aus Akte** → Akte tippen → Datei anklicken.
+Die Datei wird aus Dropbox geladen und als normaler Anhang eingefügt. Grenze: 20 MB
+(`ATTACH_MAX_MB` in `config.js`).
+
+## Aktenseite (akte.html)
+
+Browser-Oberfläche unter `…/akte.html` – Akte wählen, Dokumente öffnen, **Beteiligte** pflegen
+(`beteiligte.json` im Aktenordner), **Wiedervorlagen** (je Bereich ein Ordner `_Wiedervorlagen`,
+eine kleine Datei je Eintrag; Erledigtes wandert nach `erledigt/`) und **Briefe erzeugen**
+(Word-Vorlagen mit `{{Platzhaltern}}` im Ordner `_Vorlagen` des Bereichs; der fertige Brief
+landet im Aktenordner und wird heruntergeladen).
+
+Jede Person meldet sich mit ihrem eigenen Dropbox-Konto an. Voraussetzung: Die Adresse der
+Seite ist in der Dropbox-App als Redirect-URI eingetragen, z. B.
+`https://franzconsbruch.github.io/aktenablage/akte.html` – beim Umzug auf einen eigenen
+Server die neue Adresse (HTTPS zwingend) zusätzlich eintragen.
+
 ## Dateien
 
 | Datei | Zweck |
 |---|---|
 | `manifest.xml` | Add-in-Manifest, meldet Schaltfläche und Taskpane bei Outlook an |
-| `taskpane.html` | Oberfläche: Suchfeld, Aktenliste, Anhang-Schalter |
+| `taskpane.html` | Oberfläche: Aktenwahl, Ablegen, Anhang aus Akte |
 | `taskpane.js` | Ablauf: MIME holen, hochladen, Anhänge, Kategorie, Vermerk an der Mail |
 | `dropbox.js` | Dropbox: Anmeldung mit PKCE, Ordnerliste, Upload |
 | `auth.html` | Landeseite der Anmeldung, gibt die Tokens ans Taskpane zurück |

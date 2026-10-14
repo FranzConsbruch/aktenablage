@@ -1,12 +1,16 @@
-/* Taskpane: Akte wählen, Mail als .eml plus Anhänge nach Dropbox schreiben,
-   Mail mit der Kategorie "Abgelegt" markieren und den Zielordner an der Mail vermerken. */
+/* Taskpane des Outlook-Add-ins.
+   Lesemodus:    Mail als .eml plus Anhänge in die gewählte Dropbox-Akte ablegen,
+                 Kategorie "Abgelegt" setzen, Zielordner an der Mail vermerken.
+   Verfassen:    Datei aus einer Dropbox-Akte als Anhang in die Mail legen. */
 
-const AKTEN_CACHE_KEY = "akten_cache_v1";
+const AKTEN_CACHE_KEY = "akten_cache_v2";
 const PROP_KEY = "ablage"; // benutzerdefinierte Eigenschaft an der Mail
 
 let akten = [];
 let selected = null;
 let customProps = null;
+let composeMode = false;
+let akteFiles = [];
 
 const $ = id => document.getElementById(id);
 
@@ -14,11 +18,18 @@ const $ = id => document.getElementById(id);
 
 function setStatus(text) { $("status").textContent = text || ""; }
 
-function banner(text, kind) {
-  const b = $("banner");
+function banner(text, kind, el) {
+  const b = $(el || "banner");
   if (!text) { b.className = "hidden"; b.textContent = ""; return; }
   b.className = "note " + (kind || "info");
   b.textContent = text;
+}
+
+function fmtSize(n) {
+  if (n == null) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(0) + " KB";
+  return (n / 1048576).toFixed(1) + " MB";
 }
 
 function renderList() {
@@ -36,7 +47,12 @@ function renderList() {
     li.textContent = a.label;
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", selected && selected.path === a.path ? "true" : "false");
-    li.onclick = () => { selected = a; renderList(); $("btn-file").disabled = false; };
+    li.onclick = () => {
+      selected = a;
+      if (composeMode) { openAkteFiles(a); return; }
+      renderList();
+      $("btn-file").disabled = false;
+    };
     ul.appendChild(li);
   }
   if (!hits.length) {
@@ -51,11 +67,11 @@ function renderList() {
 
 function sanitize(s) {
   return (s || "")
-    .replace(/[\\/:*?"<>|]/g, "-")   // unter Windows verbotene Zeichen
-    .replace(/[\u0000-\u001f\u007f]/g, "")   // Steuerzeichen
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^\.+|\.+$/g, "");      // führende/abschließende Punkte
+    .replace(/^\.+|\.+$/g, "");
 }
 
 function shorten(s, max) {
@@ -74,7 +90,7 @@ function baseName(item) {
   return date + "_" + sanitize(from) + "_" + shorten(sanitize(subject), CONFIG.SUBJECT_MAX);
 }
 
-/* ---------- Outlook ---------- */
+/* ---------- Outlook: Mail lesen ---------- */
 
 function restToken() {
   return new Promise((resolve, reject) => {
@@ -99,10 +115,8 @@ function emlViaOfficeApi() {
   });
 }
 
-/* Alter Weg über die Outlook-REST-Schnittstelle. Funktioniert nur, solange im
-   Tenant die "Legacy Exchange Online Tokens" aktiv sind - in neuen Tenants sind
-   sie ab Werk aus, dann scheitert getCallbackTokenAsync mit Code 9018
-   ("Ein interner Fehler ist aufgetreten"). Deshalb nur noch Rückfallebene. */
+/* Alter Weg über die Outlook-REST-Schnittstelle - nur noch Rückfallebene.
+   In neuen Tenants sind die Legacy-Tokens aus (Fehler 9018). */
 async function emlViaRest() {
   const token = await restToken();
   const restId = Office.context.mailbox.convertToRestId(
@@ -113,7 +127,6 @@ async function emlViaRest() {
   return res.arrayBuffer();
 }
 
-/* Holt die Nachricht als rohes MIME - das ist bereits eine .eml-Datei. */
 async function fetchMime() {
   const item = Office.context.mailbox.item;
   if (item && typeof item.getAsFileAsync === "function" && supportsSet("1.14")) {
@@ -130,12 +143,27 @@ function attachmentContent(id) {
   });
 }
 
+/* ---------- base64 <-> Bytes ---------- */
+
 function b64ToBytes(b64) {
   const bin = atob(b64);
   const a = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
   return a;
 }
+
+/* Stückweise, sonst reißt bei großen Dateien der Aufruf-Stack. */
+function bytesToB64(buf) {
+  const u = new Uint8Array(buf);
+  let s = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < u.length; i += CHUNK) {
+    s += String.fromCharCode.apply(null, u.subarray(i, i + CHUNK));
+  }
+  return btoa(s);
+}
+
+/* ---------- Outlook: Kategorie und Vermerk ---------- */
 
 async function ensureCategory() {
   const name = CONFIG.CATEGORY;
@@ -146,7 +174,7 @@ async function ensureCategory() {
       if (exists) return resolve();
       Office.context.mailbox.masterCategories.addAsync(
         [{ displayName: name, color: Office.MailboxEnums.CategoryColor.Preset0 }],
-        () => resolve()); // schlägt das fehl, versuchen wir das Setzen trotzdem
+        () => resolve());
     });
   });
   await new Promise((resolve, reject) => {
@@ -170,7 +198,7 @@ function saveProps() {
   return new Promise(resolve => customProps ? customProps.saveAsync(() => resolve()) : resolve());
 }
 
-/* ---------- Ablauf ---------- */
+/* ---------- Lesemodus: Ablegen ---------- */
 
 async function fileToAkte() {
   if (!selected) return;
@@ -225,6 +253,85 @@ async function fileToAkte() {
   }
 }
 
+/* ---------- Verfassen-Modus: Anhang aus der Akte ---------- */
+
+function renderFiles() {
+  const q = $("file-filter").value.trim().toLowerCase();
+  const words = q.split(/\s+/).filter(Boolean);
+  const hits = akteFiles.filter(f => {
+    const hay = f.name.toLowerCase();
+    return words.every(w => hay.includes(w));
+  }).slice(0, 200);
+
+  const ul = $("file-list");
+  ul.innerHTML = "";
+  for (const f of hits) {
+    const li = document.createElement("li");
+    li.textContent = f.name;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = fmtSize(f.size) + (f.server_modified ? " · " + f.server_modified.slice(0, 10) : "");
+    li.appendChild(meta);
+    li.onclick = () => attachToMail(f);
+    ul.appendChild(li);
+  }
+  if (!hits.length) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = akteFiles.length ? "Keine Datei passt zu diesem Suchbegriff." : "Diese Akte enthält keine Dateien.";
+    ul.appendChild(li);
+  }
+}
+
+async function openAkteFiles(akte) {
+  $("main").className = "hidden";
+  $("files").className = "";
+  $("files-title").textContent = akte.label;
+  banner("", null, "files-banner");
+  $("files-status").textContent = "Dateien werden geladen …";
+  try {
+    const entries = await DBX.listChildren(akte.path);
+    akteFiles = entries
+      .filter(e => e[".tag"] === "file" && e.name !== CONFIG.BETEILIGTE_DATEI)
+      .sort((a, b) => b.name.localeCompare(a.name, "de")); // Datumspräfix: neueste oben
+    $("file-filter").value = "";
+    renderFiles();
+    $("files-status").textContent = "Klick auf eine Datei hängt sie an die Mail an.";
+  } catch (e) {
+    banner("Dateien konnten nicht geladen werden: " + e.message, "err", "files-banner");
+    $("files-status").textContent = "";
+  }
+}
+
+async function attachToMail(f) {
+  const maxBytes = (CONFIG.ATTACH_MAX_MB || 20) * 1048576;
+  if (f.size > maxBytes) {
+    banner(f.name + " ist " + fmtSize(f.size) + " groß – als Mail-Anhang ungeeignet (Grenze " +
+      (CONFIG.ATTACH_MAX_MB || 20) + " MB). Besser verkleinern oder auf anderem Weg teilen.", "err", "files-banner");
+    return;
+  }
+  banner("", null, "files-banner");
+  try {
+    $("files-status").textContent = f.name + " wird geladen …";
+    const buf = await DBX.download(f.path_display);
+    $("files-status").textContent = f.name + " wird angehängt …";
+    const b64 = bytesToB64(buf);
+    await new Promise((resolve, reject) => {
+      Office.context.mailbox.item.addFileAttachmentFromBase64Async(b64, f.name, r => {
+        r.status === Office.AsyncResultStatus.Succeeded ? resolve()
+          : reject(new Error(r.error.message));
+      });
+    });
+    $("files-status").textContent = "";
+    banner(f.name + " ist angehängt. Weitere Datei anklicken oder Panel schließen.", "ok", "files-banner");
+  } catch (e) {
+    $("files-status").textContent = "";
+    banner("Anhängen fehlgeschlagen: " + (e.message || String(e)), "err", "files-banner");
+  }
+}
+
+/* ---------- Aktenliste ---------- */
+
 async function loadAkten(force) {
   setStatus("Aktenliste wird geladen …");
   try {
@@ -245,9 +352,8 @@ async function loadAkten(force) {
   }
 }
 
-/* Zeigt für die gerade ausgewählte Mail an, ob sie schon abgelegt wurde,
-   und setzt Auswahl und Knopf zurück. Läuft beim Öffnen und bei jedem Mailwechsel,
-   damit das angeheftete Panel mitwandert. */
+/* ---------- Start ---------- */
+
 async function refreshForCurrentItem() {
   banner("");
   setStatus("");
@@ -257,6 +363,7 @@ async function refreshForCurrentItem() {
 
   const item = Office.context.mailbox.item;
   if (!item) { banner("Keine Nachricht ausgewählt.", "info"); return; }
+  if (composeMode) return;
 
   const props = await loadProps();
   if (!props) return;
@@ -274,25 +381,41 @@ async function showMain() {
   await loadAkten(false);
   await refreshForCurrentItem();
 
-  /* Angeheftetes Panel: Outlook meldet den Wechsel der ausgewählten Mail. */
-  Office.context.mailbox.addHandlerAsync(
-    Office.EventType.ItemChanged,
-    () => { refreshForCurrentItem().catch(e => banner(e.message, "err")); },
-    r => { if (r.status !== Office.AsyncResultStatus.Succeeded) console.warn("ItemChanged nicht registriert:", r.error); }
-  );
+  if (!composeMode) {
+    Office.context.mailbox.addHandlerAsync(
+      Office.EventType.ItemChanged,
+      () => { refreshForCurrentItem().catch(e => banner(e.message, "err")); },
+      r => { if (r.status !== Office.AsyncResultStatus.Succeeded) console.warn("ItemChanged nicht registriert:", r.error); }
+    );
+  }
 }
 
 Office.onReady(info => {
   if (info.host !== Office.HostType.Outlook) return;
 
+  const item = Office.context.mailbox.item;
+  composeMode = !!(item && typeof item.addFileAttachmentFromBase64Async === "function");
+
+  if (composeMode) {
+    $("title").textContent = "Anhang aus Akte";
+    $("filter").placeholder = "Akte suchen …";
+    $("opt-row").classList.add("hidden");
+    $("btn-file").classList.add("hidden");
+  }
+
   $("filter").addEventListener("input", renderList);
+  $("file-filter").addEventListener("input", renderFiles);
   $("btn-file").addEventListener("click", fileToAkte);
   $("btn-reload").addEventListener("click", () => loadAkten(true));
+  $("btn-back").addEventListener("click", () => {
+    $("files").className = "hidden";
+    $("main").className = "";
+  });
   $("btn-login").addEventListener("click", async () => {
     try { await DBX.login(); await showMain(); }
     catch (e) { banner(e.message, "err"); }
   });
 
   if (DBX.isLoggedIn()) showMain();
-  else { $("signin").className = ""; $("main").className = "hidden"; }
+  else { $("signin").className = ""; $("main").className = "hidden"; $("files").className = "hidden"; }
 });
