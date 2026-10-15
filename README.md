@@ -1,10 +1,15 @@
-# In Akte ablegen — Outlook-Add-in
+# Outlook-Add-ins: In Akte ablegen & Anhang aus Akte
 
-Legt die geöffnete Mail als `.eml` samt Anhängen in einer Dropbox-Akte ab und markiert sie
+**In Akte ablegen** legt die geöffnete Mail als `.eml` samt Anhängen in einer Dropbox-Akte ab und markiert sie
 in Outlook mit der Kategorie **Abgelegt**. Ersetzt den Kleos-Handgriff „Mail markieren → Akte wählen".
 
 Kein Server, keine Datenbank, kein Hintergrunddienst: reine statische Dateien, alles passiert
 im Moment des Klicks.
+
+**Anhang aus Akte** ist das zweite, bewusst getrennte Add-in (eigenes Manifest
+`manifest-anhang.xml`, eigene App-Id, gleiche Code-Basis): Beim Verfassen einer Mail hängt es
+Dateien direkt aus der Dropbox-Akte an. Getrennt deshalb, damit beide unabhängig voneinander
+hochgeladen und aktualisiert werden können — ein Update des einen kann das andere nie stören.
 
 ## Voraussetzungen
 
@@ -43,6 +48,8 @@ In `manifest.xml` stehen die Adressen schon drin
 Über das Admin Center (empfohlen, und der Weg für weitere Nutzer):
 **admin.microsoft.com → Einstellungen → Integrierte Apps → Benutzerdefinierte Apps hochladen**
 → *Office-Add-In* → `manifest.xml`. Danach beim Zuweisen die gewünschten Benutzer wählen.
+Für das zweite Add-in denselben Weg noch einmal mit `manifest-anhang.xml` gehen — es wird
+ein eigener Eintrag in der App-Liste.
 Die Bereitstellung braucht bis zu 24 Stunden, meist 15 bis 60 Minuten.
 
 Alternativ als Endnutzer: eine Mail öffnen → **Apps** in der Nachrichten-Symbolleiste →
@@ -68,11 +75,11 @@ Beim allerersten Push fragt Git nach der GitHub-Anmeldung — im Browser bestät
 `push.cmd` noch einmal starten. GitHub Pages übernimmt die Änderung nach ein bis zwei Minuten;
 danach im Outlook das Panel schließen und neu öffnen.
 
-**Wichtig:** Änderungen an `manifest.xml` wirken **nicht** über Pages. Das Manifest muss im
-Admin Center unter *Integrierte Apps* neu hochgeladen werden — und dort auch nur, wenn sich
-das Manifest tatsächlich geändert hat. Änderungen an HTML, JS und Symbolen brauchen nur den Push.
+**Wichtig:** Änderungen an den Manifesten (`manifest.xml`, `manifest-anhang.xml`) wirken
+**nicht** über Pages. Ein geändertes Manifest muss im Admin Center unter *Integrierte Apps*
+neu hochgeladen werden — und dort auch nur, wenn es sich tatsächlich geändert hat. Änderungen an HTML, JS und Symbolen brauchen nur den Push.
 
-## Anhang aus der Akte (Verfassen-Modus, seit 1.1.0.0)
+## Anhang aus Akte — zweites Add-in (Verfassen-Modus)
 
 Beim Schreiben einer Mail: **Weitere Apps → Anhang aus Akte** → Akte tippen → Datei anklicken.
 Die Datei wird aus Dropbox geladen und als normaler Anhang eingefügt. Grenze: 20 MB
@@ -95,7 +102,8 @@ Server die neue Adresse (HTTPS zwingend) zusätzlich eintragen.
 
 | Datei | Zweck |
 |---|---|
-| `manifest.xml` | Add-in-Manifest, meldet Schaltfläche und Taskpane bei Outlook an |
+| `manifest.xml` | Manifest **In Akte ablegen** (Lesemodus) |
+| `manifest-anhang.xml` | Manifest **Anhang aus Akte** (Verfassen-Modus), eigene App-Id |
 | `taskpane.html` | Oberfläche: Aktenwahl, Ablegen, Anhang aus Akte |
 | `taskpane.js` | Ablauf: MIME holen, hochladen, Anhänge, Kategorie, Vermerk an der Mail |
 | `dropbox.js` | Dropbox: Anmeldung mit PKCE, Ordnerliste, Upload |
@@ -137,8 +145,6 @@ Zahl der `.eml`-Dateien in Dropbox stellen — laufen sie auseinander, fehlt etw
 ## Bekannte Grenzen
 
 - **Nur Lesemodus.** Gesendete Mails legt man vorerst genauso von Hand aus „Gesendete Elemente" ab.
-- **Anhängen aus der Akte beim Verfassen** ist noch nicht gebaut (zweite Ausbaustufe).
-- Das MIME wird über den REST-Weg von Outlook geholt (`getCallbackTokenAsync`). Microsoft
-  bewegt sich langfristig Richtung Graph mit *Nested App Auth*; falls der REST-Weg wegfällt,
-  ist `fetchMime()` in `taskpane.js` die einzige Stelle, die sich ändert.
+- Das MIME der Mail kommt über `getAsFileAsync` (ab Mailbox 1.14); nur auf älteren Clients
+  fällt `fetchMime()` in `taskpane.js` auf den alten REST-Weg zurück.
 - Ordner, die nicht angeboten werden sollen, stehen in `config.js` unter `EXCLUDE`.

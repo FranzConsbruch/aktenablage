@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Zweites Add-in: "Anhang aus Akte" (nur Verfassen-Modus).
+  Bewusst vom Add-in "In Akte ablegen" (manifest.xml) getrennt, damit beide
+  unabhängig voneinander hochgeladen und aktualisiert werden können.
+  Adressen eingetragen für https://franzconsbruch.github.io/aktenablage
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+  xsi:type="MailApp">
+
+  <Id>03360fef-9e36-4d27-8d56-da8f22bb4bde</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>von Consbruch</ProviderName>
+  <DefaultLocale>de-DE</DefaultLocale>
+  <DisplayName DefaultValue="Anhang aus Akte"/>
+  <Description DefaultValue="Hängt beim Schreiben einer Mail Dateien aus der gewählten Dropbox-Akte als Anhang an."/>
+  <IconUrl DefaultValue="https://franzconsbruch.github.io/aktenablage/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://franzconsbruch.github.io/aktenablage/assets/icon-128.png"/>
+  <SupportUrl DefaultValue="https://franzconsbruch.github.io/aktenablage/"/>
+
+  <AppDomains>
+    <AppDomain>https://www.dropbox.com</AppDomain>
+    <AppDomain>https://api.dropbox.com</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.8"/>
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemEdit">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://franzconsbruch.github.io/aktenablage/taskpane.html"/>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <!-- ReadWriteItem genügt: Anhänge an die gerade geschriebene Mail anfügen.
+       Das Postfach selbst wird nicht angefasst. -->
+  <Permissions>ReadWriteItem</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.8">
+        <bt:Set Name="Mailbox"/>
+      </bt:Sets>
+    </Requirements>
+
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="grpAkteCompose">
+                <Label resid="grpLabel"/>
+                <Control xsi:type="Button" id="btnAnhang">
+                  <Label resid="btnLabel"/>
+                  <Supertip>
+                    <Title resid="btnLabel"/>
+                    <Description resid="btnTip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="icon16"/>
+                    <bt:Image size="32" resid="icon32"/>
+                    <bt:Image size="80" resid="icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="taskpaneUrl"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="icon16" DefaultValue="https://franzconsbruch.github.io/aktenablage/assets/icon-16.png"/>
+        <bt:Image id="icon32" DefaultValue="https://franzconsbruch.github.io/aktenablage/assets/icon-32.png"/>
+        <bt:Image id="icon80" DefaultValue="https://franzconsbruch.github.io/aktenablage/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="taskpaneUrl" DefaultValue="https://franzconsbruch.github.io/aktenablage/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="grpLabel" DefaultValue="Akte"/>
+        <bt:String id="btnLabel" DefaultValue="Anhang aus Akte"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="btnTip" DefaultValue="Eine Datei aus einer Dropbox-Akte als Anhang in diese Mail legen."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

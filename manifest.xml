@@ -11,7 +11,7 @@
   xsi:type="MailApp">
 
   <Id>1a2f27c9-8e61-4dc9-a80b-dc78a1f714f5</Id>
-  <Version>1.1.1.0</Version>
+  <Version>1.0.2.0</Version>
   <ProviderName>von Consbruch</ProviderName>
   <DefaultLocale>de-DE</DefaultLocale>
   <DisplayName DefaultValue="In Akte ablegen"/>
@@ -86,28 +86,6 @@
               </Group>
             </OfficeTab>
           </ExtensionPoint>
-          <ExtensionPoint xsi:type="MessageComposeCommandSurface">
-            <OfficeTab id="TabDefault">
-              <Group id="grpAkteCompose">
-                <Label resid="grpLabel"/>
-                <Control xsi:type="Button" id="btnAnhang">
-                  <Label resid="btnLabel2"/>
-                  <Supertip>
-                    <Title resid="btnLabel2"/>
-                    <Description resid="btnTip2"/>
-                  </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="icon16"/>
-                    <bt:Image size="32" resid="icon32"/>
-                    <bt:Image size="80" resid="icon80"/>
-                  </Icon>
-                  <Action xsi:type="ShowTaskpane">
-                    <SourceLocation resid="taskpaneUrl"/>
-                  </Action>
-                </Control>
-              </Group>
-            </OfficeTab>
-          </ExtensionPoint>
         </DesktopFormFactor>
       </Host>
     </Hosts>
@@ -124,11 +102,9 @@
       <bt:ShortStrings>
         <bt:String id="grpLabel" DefaultValue="Akte"/>
         <bt:String id="btnLabel" DefaultValue="In Akte ablegen"/>
-        <bt:String id="btnLabel2" DefaultValue="Anhang aus Akte"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="btnTip" DefaultValue="Diese Mail als .eml samt Anhängen in einer Dropbox-Akte ablegen."/>
-        <bt:String id="btnTip2" DefaultValue="Eine Datei aus einer Dropbox-Akte als Anhang in diese Mail legen."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
